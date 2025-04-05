@@ -1,4 +1,6 @@
-﻿using Microsoft.Xna.Framework;
+﻿using Android.OS;
+using Android.Views;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Input.Touch;
@@ -18,7 +20,13 @@ namespace MoleMash
         Texture2D _scaledGhostTextureMedium;
         Texture2D _scaledGhostTextureSmall;
         Texture2D _heartTexture;
-        Texture2D _scaledHeartTexture; // Add this line
+        Texture2D _scaledHeartTexture;
+
+        Texture2D _immunityTexture;
+        Texture2D _scaledImmunityTexture;
+
+        Texture2D _slowTimeTexture;
+        Texture2D _scaledSlowTimeTexture;
 
         List<Ghost> _ghostsBig;
         List<Ghost> _ghostsMedium;
@@ -40,6 +48,26 @@ namespace MoleMash
         int screenHeight;
         int headerHeight;
 
+        // Immunity fields
+        private float _timeSinceLastImmunitySpawn;
+        private float _immunityDuration = 20f;
+        private float _immunityTimeRemaining;
+        private Vector2 _immunityPosition;
+        private bool _isImmunityVisible;
+        private float _nextImmunitySpawnInterval;
+
+        // SlowTime fields
+        private float _timeSinceLastSlowTimeSpawn;
+        private float _slowTimeDuration = 20f;
+        private float _slowTimeTimeRemaining;
+        private Vector2 _slowTimePosition;
+        private bool _isSlowTimeVisible;
+        private float _nextSlowTimeSpawnInterval;
+
+        private float _originalSpawnIntervalBig;
+        private float _originalSpawnIntervalMedium;
+        private float _originalSpawnIntervalSmall;
+
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
@@ -49,6 +77,12 @@ namespace MoleMash
             // Force the game to run at 60 FPS
             TargetElapsedTime = TimeSpan.FromSeconds(1.0 / 60.0);
             IsFixedTimeStep = true;
+        }
+
+        private float GetRandomTime(int a,int b)
+        {
+            Random rand = new Random();
+            return (float)rand.Next(a, b); // Random time between 5 and 20 seconds
         }
 
         protected override void Initialize()
@@ -64,6 +98,18 @@ namespace MoleMash
             _timeSinceLastSpawnSmall = 0f;
 
             _elapsedGameTime = 0f;
+
+            _timeSinceLastImmunitySpawn = 0f;
+            _player.bHasImmunity = false;
+            _immunityTimeRemaining = 0f;
+            _isImmunityVisible = false;
+            _nextImmunitySpawnInterval = 30f + GetRandomTime(5,21);
+
+            _timeSinceLastSlowTimeSpawn = 0f;
+            _player.bSlowerTime = false;
+            _slowTimeTimeRemaining = 0f;
+            _isSlowTimeVisible = false;
+            _nextSlowTimeSpawnInterval = 50f + GetRandomTime(15,31);
 
             TouchPanel.EnabledGestures = GestureType.Tap;
             base.Initialize();
@@ -84,9 +130,15 @@ namespace MoleMash
             _heartTexture = Content.Load<Texture2D>("Heart");
             _scaledHeartTexture = ScaleTexture(_heartTexture, 0.15f); // Scale the heart texture
 
+            _immunityTexture = Content.Load<Texture2D>("Infinity");
+            _scaledImmunityTexture = ScaleTexture(_immunityTexture, 0.15f); // Scale the immunity texture
+
+            _slowTimeTexture = Content.Load<Texture2D>("Clock");
+            _scaledSlowTimeTexture = ScaleTexture(_slowTimeTexture, 0.1f); // Scale the slow time texture
+
             screenWidth = GraphicsDevice.Viewport.Width;
             screenHeight = GraphicsDevice.Viewport.Height;
-            headerHeight = 100;
+            headerHeight = 200;
         }
 
         private Texture2D ScaleTexture(Texture2D originalTexture, float scaleFactor)
@@ -122,7 +174,7 @@ namespace MoleMash
             if (_timeSinceLastSpawnBig >= _spawnIntervalBig)
             {
                 SpawnGhost(_ghostsBig, _scaledGhostTextureBig);
-                _timeSinceLastSpawnBig = 0f- _spawnIntervalBig; 
+                _timeSinceLastSpawnBig = 0f - _spawnIntervalBig;
             }
 
             if (_elapsedGameTime >= 20f && _timeSinceLastSpawnMedium >= _spawnIntervalMedium)
@@ -137,12 +189,53 @@ namespace MoleMash
                 _timeSinceLastSpawnSmall = 0f - _spawnIntervalSmall;
             }
 
-            //CINI MI SE DA NE RADI PROVJERI
             if (_elapsedGameTime >= 60f && (_elapsedGameTime - 60f) % 10f < (float)gameTime.ElapsedGameTime.TotalSeconds)
             {
-                _spawnIntervalBig = Math.Max(0.1f, _spawnIntervalBig - 0.05f);
-                _spawnIntervalMedium = Math.Max(0.1f, _spawnIntervalMedium - 0.05f);
-                _spawnIntervalSmall = Math.Max(0.1f, _spawnIntervalSmall - 0.05f);
+                if (!_player.bSlowerTime)
+                {
+                    _spawnIntervalBig = Math.Max(0.1f, _spawnIntervalBig - 0.05f);
+                    _spawnIntervalMedium = Math.Max(0.1f, _spawnIntervalMedium - 0.05f);
+                    _spawnIntervalSmall = Math.Max(0.1f, _spawnIntervalSmall - 0.05f);
+                }
+            }
+
+            _timeSinceLastImmunitySpawn += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (_timeSinceLastImmunitySpawn >= _nextImmunitySpawnInterval)
+            {
+                SpawnImmunity();
+                _timeSinceLastImmunitySpawn = 0f;
+                _nextImmunitySpawnInterval = 30f + GetRandomTime(5,21);
+            }
+
+            if (_player.bHasImmunity)
+            {
+                _immunityTimeRemaining -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+                if (_immunityTimeRemaining <= 0f)
+                {
+                    _player.bHasImmunity = false;
+                }
+            }
+
+            _timeSinceLastSlowTimeSpawn += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (_timeSinceLastSlowTimeSpawn >= _nextSlowTimeSpawnInterval)
+            {
+                SpawnSlowTime();
+                _timeSinceLastSlowTimeSpawn = 0f;
+                _nextSlowTimeSpawnInterval = 30f + GetRandomTime(15,31);
+            }
+
+            if (_player.bSlowerTime)
+            {
+                _slowTimeTimeRemaining -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+                if (_slowTimeTimeRemaining <= 0f)
+                {
+                    _player.bSlowerTime = false;
+                    _spawnIntervalBig = _originalSpawnIntervalBig;
+                    _spawnIntervalMedium = _originalSpawnIntervalMedium;
+                    _spawnIntervalSmall = _originalSpawnIntervalSmall;
+                }
             }
 
             CheckForTouchInput();
@@ -173,7 +266,10 @@ namespace MoleMash
                 if (ghostList[i].TimeAlive >= spawnInterval)
                 {
                     ghostList.RemoveAt(i);
-                    _player.Health -= 1;
+                    if (!_player.bHasImmunity)
+                    {
+                        _player.Health -= 1;
+                    }
                 }
             }
         }
@@ -193,7 +289,20 @@ namespace MoleMash
 
                     if (!ghostTouched)
                     {
-                        _player.Health -= 1; // Decrease health if no ghost was touched
+                        if (_isImmunityVisible && new Rectangle(_immunityPosition.ToPoint(), new Point(_scaledImmunityTexture.Width, _scaledImmunityTexture.Height)).Contains(gesture.Position.ToPoint()))
+                        {
+                            ActivateImmunity();
+                            _isImmunityVisible = false;
+                        }
+                        else if (_isSlowTimeVisible && new Rectangle(_slowTimePosition.ToPoint(), new Point(_scaledSlowTimeTexture.Width, _scaledSlowTimeTexture.Height)).Contains(gesture.Position.ToPoint()))
+                        {
+                            ActivateSlowTime();
+                            _isSlowTimeVisible = false;
+                        }
+                        else if (!_player.bHasImmunity)
+                        {
+                            _player.Health -= 1; // Decrease health if no ghost was touched and immunity is not active
+                        }
                     }
                 }
             }
@@ -224,7 +333,41 @@ namespace MoleMash
             return false; // No ghost was touched
         }
 
+        private void SpawnImmunity()
+        {
+            Random rand = new Random();
+            _immunityPosition = new Vector2(rand.Next(0, screenWidth - _scaledImmunityTexture.Width),
+                                                rand.Next(0, screenHeight - headerHeight - _scaledImmunityTexture.Height));
+            _isImmunityVisible = true;
+        }
 
+        private void ActivateImmunity()
+        {
+            _player.bHasImmunity = true;
+            _immunityTimeRemaining = _immunityDuration;
+        }
+
+        private void SpawnSlowTime()
+        {
+            Random rand = new Random();
+            _slowTimePosition = new Vector2(rand.Next(0, screenWidth - _scaledSlowTimeTexture.Width),
+                                            rand.Next(0, screenHeight - headerHeight - _scaledSlowTimeTexture.Height));
+            _isSlowTimeVisible = true;
+        }
+
+        private void ActivateSlowTime()
+        {
+            _player.bSlowerTime = true;
+            _slowTimeTimeRemaining = _slowTimeDuration;
+
+            _originalSpawnIntervalBig = _spawnIntervalBig;
+            _originalSpawnIntervalMedium = _spawnIntervalMedium;
+            _originalSpawnIntervalSmall = _spawnIntervalSmall;
+
+            _spawnIntervalBig = 3f;
+            _spawnIntervalMedium = 2f;
+            _spawnIntervalSmall = 1f;
+        }
 
         protected override void Draw(GameTime gameTime)
         {
@@ -235,10 +378,51 @@ namespace MoleMash
             // Draw header background
             _spriteBatch.Draw(CreateRectangleTexture(GraphicsDevice, screenWidth, headerHeight, Color.White), new Vector2(0, 0), Color.White);
 
-            // Draw health information in the header
-            for (int i = 0; i < _player.Health; i++)
+            if (_player.bHasImmunity)
             {
-                _spriteBatch.Draw(_scaledHeartTexture, new Vector2(10 + i * (_scaledHeartTexture.Width + 5), 10), Color.White);
+                // Draw infinity icon and countdown timer
+                _spriteBatch.Draw(_scaledImmunityTexture, new Vector2((screenWidth - _scaledImmunityTexture.Width) / 2, 10), Color.White);
+                _spriteBatch.DrawString(_font, _immunityTimeRemaining.ToString("0"), new Vector2((screenWidth - _scaledImmunityTexture.Width) / 2 + _scaledImmunityTexture.Width + 10, 10), Color.Black);
+
+                if (_player.bSlowerTime)
+                {
+                    // Draw slow time icon and countdown timer below immunity icon
+                    _spriteBatch.Draw(_scaledSlowTimeTexture, new Vector2((screenWidth - _scaledSlowTimeTexture.Width) / 2, 10 + _scaledImmunityTexture.Height + 10), Color.White);
+                    _spriteBatch.DrawString(_font, _slowTimeTimeRemaining.ToString("0"), new Vector2((screenWidth - _scaledSlowTimeTexture.Width) / 2 + _scaledSlowTimeTexture.Width + 10, 10 + _scaledImmunityTexture.Height + 10), Color.Black);
+                }
+            }
+            else
+            {
+                // Draw hearts
+                int heartCount = _player.Health;
+                int spacing = 5;
+                int totalWidth = heartCount * (_scaledHeartTexture.Width + spacing) - spacing; // No spacing after last heart
+                int startX = (screenWidth - totalWidth) / 2;
+
+                for (int i = 0; i < heartCount; i++)
+                {
+                    Vector2 position = new Vector2(startX + i * (_scaledHeartTexture.Width + spacing), 10); // Y = 10 is still top
+                    _spriteBatch.Draw(_scaledHeartTexture, position, Color.White);
+                }
+
+                if (_player.bSlowerTime)
+                {
+                    // Draw slow time icon and countdown timer below hearts
+                    _spriteBatch.Draw(_scaledSlowTimeTexture, new Vector2((screenWidth - _scaledSlowTimeTexture.Width) / 2, 10 + _scaledHeartTexture.Height + 10), Color.White);
+                    _spriteBatch.DrawString(_font, _slowTimeTimeRemaining.ToString("0"), new Vector2((screenWidth - _scaledSlowTimeTexture.Width) / 2 + _scaledSlowTimeTexture.Width + 10, 10 + _scaledHeartTexture.Height + 10), Color.Black);
+                }
+            }
+
+            // Draw immunity icon if visible
+            if (_isImmunityVisible)
+            {
+                _spriteBatch.Draw(_scaledImmunityTexture, _immunityPosition, Color.White);
+            }
+
+            // Draw slow time icon if visible
+            if (_isSlowTimeVisible)
+            {
+                _spriteBatch.Draw(_scaledSlowTimeTexture, _slowTimePosition, Color.White);
             }
 
             // Draw game content below the header

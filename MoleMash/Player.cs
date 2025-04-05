@@ -32,5 +32,8 @@ namespace MoleMash
         }
         public int score { get; set; }
         public string username {  get; set; }
+
+        public bool bHasImmunity { get; set; } = false;
+        public bool bSlowerTime { get; set; } = false;
     }
 }
