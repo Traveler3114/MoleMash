@@ -6,6 +6,19 @@
     <ApplicationId>com.companyname.MoleMash</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <AndroidSigningKeyStore>my-release-key.keystore</AndroidSigningKeyStore>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AndroidKeyStore>True</AndroidKeyStore>
+    <AndroidSigningStorePass>0MoleMash4#</AndroidSigningStorePass>
+    <AndroidSigningKeyAlias>molemashkey</AndroidSigningKeyAlias>
+    <AndroidSigningKeyPass>0MoleMash4#</AndroidSigningKeyPass>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AndroidKeyStore>True</AndroidKeyStore>
+    <AndroidSigningStorePass>0MoleMash4#</AndroidSigningStorePass>
+    <AndroidSigningKeyAlias>molemashkey</AndroidSigningKeyAlias>
+    <AndroidSigningKeyPass>0MoleMash4#</AndroidSigningKeyPass>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.2.1105" />
