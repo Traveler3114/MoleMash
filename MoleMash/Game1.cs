@@ -138,7 +138,7 @@ namespace MoleMash
 
             screenWidth = GraphicsDevice.Viewport.Width;
             screenHeight = GraphicsDevice.Viewport.Height;
-            headerHeight = 200;
+            headerHeight = 100;
         }
 
         private Texture2D ScaleTexture(Texture2D originalTexture, float scaleFactor)
@@ -162,6 +162,22 @@ namespace MoleMash
 
         protected override void Update(GameTime gameTime)
         {
+            //JEBENI KOD ZA FULLSCREEN
+            //NE DIRAJ!!!!
+            if (GraphicsDevice != null && (GraphicsDevice.Viewport.X != 0 ||
+                GraphicsDevice.Viewport.Width != GraphicsDevice.Adapter.CurrentDisplayMode.Width ||
+                GraphicsDevice.Viewport.Width != GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width))
+            {
+                Viewport view = GraphicsDevice.Viewport;
+                view.X = 0;
+                view.Width = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
+                GraphicsDevice.Viewport = view;
+            }
+            screenWidth = GraphicsDevice.Viewport.Width;
+            screenHeight = GraphicsDevice.Viewport.Height;
+            //NE DIRAJ!!!!
+            //JEBENI KOD ZA FULLSCREEN
+
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
@@ -251,7 +267,7 @@ namespace MoleMash
         {
             Random rand = new Random();
             Vector2 position = new Vector2(rand.Next(0, screenWidth - texture.Width),
-                                          rand.Next(0, screenHeight - headerHeight - texture.Height));
+                                          rand.Next(0, screenHeight - texture.Height));
 
             Ghost newGhost = new Ghost(position, texture, 0f);
             ghostList.Add(newGhost);
