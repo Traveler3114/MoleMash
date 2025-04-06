@@ -50,7 +50,7 @@ namespace MoleMash
 
         // Immunity fields
         private float _timeSinceLastImmunitySpawn;
-        private float _immunityDuration = 20f;
+        private float _immunityDuration = 1f;
         private float _immunityTimeRemaining;
         private Vector2 _immunityPosition;
         private bool _isImmunityVisible;
@@ -58,7 +58,7 @@ namespace MoleMash
 
         // SlowTime fields
         private float _timeSinceLastSlowTimeSpawn;
-        private float _slowTimeDuration = 20f;
+        private float _slowTimeDuration = 1f;
         private float _slowTimeTimeRemaining;
         private Vector2 _slowTimePosition;
         private bool _isSlowTimeVisible;
@@ -79,7 +79,7 @@ namespace MoleMash
             IsFixedTimeStep = true;
         }
 
-        private float GetRandomTime(int a,int b)
+        private float GetRandomTime(int a, int b)
         {
             Random rand = new Random();
             return (float)rand.Next(a, b); // Random time between 5 and 20 seconds
@@ -103,13 +103,13 @@ namespace MoleMash
             _player.bHasImmunity = false;
             _immunityTimeRemaining = 0f;
             _isImmunityVisible = false;
-            _nextImmunitySpawnInterval = 30f + GetRandomTime(5,21);
+            _nextImmunitySpawnInterval = 30f + GetRandomTime(5, 21);
 
             _timeSinceLastSlowTimeSpawn = 0f;
             _player.bSlowerTime = false;
             _slowTimeTimeRemaining = 0f;
             _isSlowTimeVisible = false;
-            _nextSlowTimeSpawnInterval = 50f + GetRandomTime(15,31);
+            _nextSlowTimeSpawnInterval = 50f + GetRandomTime(15, 31);
 
             TouchPanel.EnabledGestures = GestureType.Tap;
             base.Initialize();
@@ -215,13 +215,22 @@ namespace MoleMash
                 }
             }
 
+            // Immunity power-up logic
             _timeSinceLastImmunitySpawn += (float)gameTime.ElapsedGameTime.TotalSeconds;
-
             if (_timeSinceLastImmunitySpawn >= _nextImmunitySpawnInterval)
             {
                 SpawnImmunity();
                 _timeSinceLastImmunitySpawn = 0f;
-                _nextImmunitySpawnInterval = 30f + GetRandomTime(5,21);
+                _nextImmunitySpawnInterval = 30f + GetRandomTime(5, 21);
+            }
+
+            if (_isImmunityVisible)
+            {
+                _immunityTimeRemaining -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+                if (_immunityTimeRemaining <= 0f)
+                {
+                    _isImmunityVisible = false;
+                }
             }
 
             if (_player.bHasImmunity)
@@ -233,13 +242,22 @@ namespace MoleMash
                 }
             }
 
+            // SlowTime power-up logic
             _timeSinceLastSlowTimeSpawn += (float)gameTime.ElapsedGameTime.TotalSeconds;
-
             if (_timeSinceLastSlowTimeSpawn >= _nextSlowTimeSpawnInterval)
             {
                 SpawnSlowTime();
                 _timeSinceLastSlowTimeSpawn = 0f;
-                _nextSlowTimeSpawnInterval = 30f + GetRandomTime(15,31);
+                _nextSlowTimeSpawnInterval = 30f + GetRandomTime(15, 31);
+            }
+
+            if (_isSlowTimeVisible)
+            {
+                _slowTimeTimeRemaining -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+                if (_slowTimeTimeRemaining <= 0f)
+                {
+                    _isSlowTimeVisible = false;
+                }
             }
 
             if (_player.bSlowerTime)
@@ -252,6 +270,15 @@ namespace MoleMash
                     _spawnIntervalMedium = _originalSpawnIntervalMedium;
                     _spawnIntervalSmall = _originalSpawnIntervalSmall;
                 }
+            }
+
+            if (_player.bSlowerTime)
+            {
+                headerHeight = 10 + _scaledHeartTexture.Height + 10 + _scaledSlowTimeTexture.Height + 10;
+            }
+            else
+            {
+                headerHeight = 100;
             }
 
             CheckForTouchInput();
@@ -267,7 +294,7 @@ namespace MoleMash
         {
             Random rand = new Random();
             Vector2 position = new Vector2(rand.Next(0, screenWidth - texture.Width),
-                                          rand.Next(0, screenHeight - texture.Height));
+                                          rand.Next(headerHeight, screenHeight - texture.Height));
 
             Ghost newGhost = new Ghost(position, texture, 0f);
             ghostList.Add(newGhost);
@@ -353,8 +380,9 @@ namespace MoleMash
         {
             Random rand = new Random();
             _immunityPosition = new Vector2(rand.Next(0, screenWidth - _scaledImmunityTexture.Width),
-                                                rand.Next(0, screenHeight - headerHeight - _scaledImmunityTexture.Height));
+                                            rand.Next(headerHeight, screenHeight - _scaledImmunityTexture.Height));
             _isImmunityVisible = true;
+            _immunityTimeRemaining = _immunityDuration; // Set the duration for the immunity power-up
         }
 
         private void ActivateImmunity()
@@ -367,8 +395,9 @@ namespace MoleMash
         {
             Random rand = new Random();
             _slowTimePosition = new Vector2(rand.Next(0, screenWidth - _scaledSlowTimeTexture.Width),
-                                            rand.Next(0, screenHeight - headerHeight - _scaledSlowTimeTexture.Height));
+                                            rand.Next(headerHeight, screenHeight - _scaledSlowTimeTexture.Height));
             _isSlowTimeVisible = true;
+            _slowTimeTimeRemaining = _slowTimeDuration; // Set the duration for the slow time power-up
         }
 
         private void ActivateSlowTime()
